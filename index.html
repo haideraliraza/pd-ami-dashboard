@@ -259,7 +259,9 @@
       <div class="eyebrow">System Live</div>
       <h1>PD AMI Dashboard</h1>
     </div>
-    <div class="timestamp">Deployment status<br><span id="now">—</span></div>
+    <div class="timestamp">
+      <span id="sync-label">Syncing…</span><br><span id="now">—</span>
+    </div>
   </header>
 
   <section class="block">
@@ -267,34 +269,34 @@
     <div class="grid">
       <div class="stat total">
         <div class="label">Total</div>
-        <div class="value">1,218,522</div>
+        <div class="value" id="m-total">—</div>
       </div>
       <div class="stat">
         <div class="label">Initial</div>
-        <div class="value">65,712</div>
-        <div class="sub">5.39%</div>
+        <div class="value" id="m-initial">—</div>
+        <div class="sub" id="m-initial-pct">—</div>
       </div>
       <div class="stat">
         <div class="label">Discover</div>
-        <div class="value">9,546</div>
-        <div class="sub">0.78%</div>
+        <div class="value" id="m-discover">—</div>
+        <div class="sub" id="m-discover-pct">—</div>
       </div>
       <div class="stat">
         <div class="label">Commissioning</div>
-        <div class="value">3,020</div>
-        <div class="sub">0.25%</div>
+        <div class="value" id="m-commissioning">—</div>
+        <div class="sub" id="m-commissioning-pct">—</div>
       </div>
       <div class="stat">
         <div class="label">Commissioned</div>
-        <div class="value" style="color:var(--green)">1,140,244</div>
-        <div class="sub">93.59%</div>
+        <div class="value" style="color:var(--green)" id="m-commissioned">—</div>
+        <div class="sub" id="m-commissioned-pct">—</div>
       </div>
     </div>
     <div class="stack-bar">
-      <div style="width:5.39%; background:#3a5a52;"></div>
-      <div style="width:0.78%; background:#4a4a2a;"></div>
-      <div style="width:0.25%; background:var(--amber);"></div>
-      <div style="width:93.59%; background:var(--green);"></div>
+      <div id="m-bar-initial" style="width:0%; background:#3a5a52;"></div>
+      <div id="m-bar-discover" style="width:0%; background:#4a4a2a;"></div>
+      <div id="m-bar-commissioning" style="width:0%; background:var(--amber);"></div>
+      <div id="m-bar-commissioned" style="width:0%; background:var(--green);"></div>
     </div>
     <div class="legend">
       <span><i style="background:#3a5a52"></i>Initial</span>
@@ -309,34 +311,34 @@
     <div class="grid">
       <div class="stat total">
         <div class="label">Total</div>
-        <div class="value">13,413</div>
+        <div class="value" id="d-total">—</div>
       </div>
       <div class="stat">
         <div class="label">Initial</div>
-        <div class="value">1,313</div>
-        <div class="sub">9.79%</div>
+        <div class="value" id="d-initial">—</div>
+        <div class="sub" id="d-initial-pct">—</div>
       </div>
       <div class="stat">
         <div class="label">Discover</div>
-        <div class="value">6</div>
-        <div class="sub">0.04%</div>
+        <div class="value" id="d-discover">—</div>
+        <div class="sub" id="d-discover-pct">—</div>
       </div>
       <div class="stat">
         <div class="label">Commissioning</div>
-        <div class="value">2</div>
-        <div class="sub">0.01%</div>
+        <div class="value" id="d-commissioning">—</div>
+        <div class="sub" id="d-commissioning-pct">—</div>
       </div>
       <div class="stat">
         <div class="label">Commissioned</div>
-        <div class="value" style="color:var(--green)">12,092</div>
-        <div class="sub">90.15%</div>
+        <div class="value" style="color:var(--green)" id="d-commissioned">—</div>
+        <div class="sub" id="d-commissioned-pct">—</div>
       </div>
     </div>
     <div class="stack-bar">
-      <div style="width:9.79%; background:#3a5a52;"></div>
-      <div style="width:0.04%; background:#4a4a2a;"></div>
-      <div style="width:0.01%; background:var(--amber);"></div>
-      <div style="width:90.15%; background:var(--green);"></div>
+      <div id="d-bar-initial" style="width:0%; background:#3a5a52;"></div>
+      <div id="d-bar-discover" style="width:0%; background:#4a4a2a;"></div>
+      <div id="d-bar-commissioning" style="width:0%; background:var(--amber);"></div>
+      <div id="d-bar-commissioned" style="width:0%; background:var(--green);"></div>
     </div>
     <div class="legend">
       <span><i style="background:#3a5a52"></i>Initial</span>
@@ -351,7 +353,7 @@
     <div class="lower">
       <div class="abnormal-panel">
         <div class="label">Abnormal Devices</div>
-        <div class="value">101,695</div>
+        <div class="value" id="abnormal-value">—</div>
         <div class="sub">Flagged across meter &amp; DCU fleet</div>
       </div>
       <div class="gauges" id="gauges"></div>
@@ -372,43 +374,136 @@
 </div>
 
 <script>
-document.getElementById('now').textContent = new Date().toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
+/* ---------- CONFIG ---------- */
+const SHEET_ID = '1Y-zYKaLupgDc7Ys9zn28MFFQd1tgLgp9OvDlv-v4txU';
+const GID = '0'; // change if the data lives on a different tab
+const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID}&cachebust=${Date.now()}`;
+const REFRESH_MS = 60000; // re-fetch every 60s
 
-const gaugeData = [
-  { label: 'Daily Profile', value: 87.45 },
-  { label: 'Monthly Profile', value: 95.93 },
-  { label: 'Energy Load Profile', value: 79.96 },
-  { label: 'Quality Load Profile', value: 80.74 }
-];
+/* Row/column positions (0-indexed) matching the sheet layout:
+   row 2 -> Meters:  Total, Initial, Discover, Commissioning, Commissioned (cols 0-4)
+   row 5 -> DCU:     Total, Initial, Discover, Commissioning, Commissioned (cols 0-4)
+   row 7 -> Abnormal Devices value (col 0)
+   row 9 -> Collection Rate: (blank), Daily, Monthly, Energy Load, Quality Load (cols 1-4) */
+const POS = {
+  meters: 2,
+  dcu: 5,
+  abnormal: 7,
+  collection: 9
+};
+
+/* ---------- CSV PARSER (handles quoted fields with commas) ---------- */
+function parseCSV(text){
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  for (let i = 0; i < text.length; i++){
+    const ch = text[i], next = text[i+1];
+    if (inQuotes){
+      if (ch === '"' && next === '"'){ field += '"'; i++; }
+      else if (ch === '"'){ inQuotes = false; }
+      else { field += ch; }
+    } else {
+      if (ch === '"'){ inQuotes = true; }
+      else if (ch === ','){ row.push(field); field = ''; }
+      else if (ch === '\n' || ch === '\r'){
+        if (field !== '' || row.length){ row.push(field); rows.push(row); }
+        field = ''; row = [];
+        if (ch === '\r' && next === '\n') i++;
+      } else { field += ch; }
+    }
+  }
+  if (field !== '' || row.length){ row.push(field); rows.push(row); }
+  return rows;
+}
+
+function num(str){
+  if (!str) return 0;
+  return parseFloat(String(str).replace(/[,%\s]/g, '')) || 0;
+}
+function fmt(n){ return n.toLocaleString('en-US'); }
+function pct(part, total){ return total ? ((part/total)*100).toFixed(2) + '%' : '—'; }
+
+function setText(id, val){ const el = document.getElementById(id); if (el) el.textContent = val; }
+function setWidth(id, val){ const el = document.getElementById(id); if (el) el.style.width = val + '%'; }
+
+function renderGroup(prefix, cells){
+  // cells: [total, initial, discover, commissioning, commissioned]
+  const [total, initial, discover, commissioning, commissioned] = cells.map(num);
+  setText(`${prefix}-total`, fmt(total));
+  setText(`${prefix}-initial`, fmt(initial));
+  setText(`${prefix}-discover`, fmt(discover));
+  setText(`${prefix}-commissioning`, fmt(commissioning));
+  setText(`${prefix}-commissioned`, fmt(commissioned));
+  setText(`${prefix}-initial-pct`, pct(initial, total));
+  setText(`${prefix}-discover-pct`, pct(discover, total));
+  setText(`${prefix}-commissioning-pct`, pct(commissioning, total));
+  setText(`${prefix}-commissioned-pct`, pct(commissioned, total));
+  setWidth(`${prefix}-bar-initial`, total ? (initial/total*100) : 0);
+  setWidth(`${prefix}-bar-discover`, total ? (discover/total*100) : 0);
+  setWidth(`${prefix}-bar-commissioning`, total ? (commissioning/total*100) : 0);
+  setWidth(`${prefix}-bar-commissioned`, total ? (commissioned/total*100) : 0);
+}
 
 const size = 108, stroke = 8, r = (size - stroke) / 2, c = 2 * Math.PI * r;
-
 function colorFor(v){
   if (v >= 90) return 'var(--green)';
   if (v >= 80) return 'var(--amber)';
   return 'var(--red)';
 }
+function renderGauges(values){
+  // values: [daily, monthly, energyLoad, qualityLoad]
+  const labels = ['Daily Profile', 'Monthly Profile', 'Energy Load Profile', 'Quality Load Profile'];
+  const container = document.getElementById('gauges');
+  container.innerHTML = '';
+  values.forEach((raw, i) => {
+    const v = num(raw);
+    const offset = c - (v / 100) * c;
+    const col = colorFor(v);
+    const div = document.createElement('div');
+    div.className = 'gauge';
+    div.innerHTML = `
+      <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+        <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="var(--panel-line)" stroke-width="${stroke}"/>
+        <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${col}" stroke-width="${stroke}"
+          stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${c}"
+          transform="rotate(-90 ${size/2} ${size/2})">
+          <animate attributeName="stroke-dashoffset" from="${c}" to="${offset}" dur="1.1s" fill="freeze" calcMode="spline" keySplines="0.2 0 0.2 1"/>
+        </circle>
+        <text x="50%" y="50%" text-anchor="middle" dominant-baseline="central" class="gval">${v}%</text>
+      </svg>
+      <div class="glabel">${labels[i]}</div>
+    `;
+    container.appendChild(div);
+  });
+}
 
-const container = document.getElementById('gauges');
-gaugeData.forEach(g => {
-  const offset = c - (g.value / 100) * c;
-  const col = colorFor(g.value);
-  const div = document.createElement('div');
-  div.className = 'gauge';
-  div.innerHTML = `
-    <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-      <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="var(--panel-line)" stroke-width="${stroke}"/>
-      <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${col}" stroke-width="${stroke}"
-        stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${c}"
-        transform="rotate(-90 ${size/2} ${size/2})">
-        <animate attributeName="stroke-dashoffset" from="${c}" to="${offset}" dur="1.1s" fill="freeze" calcMode="spline" keySplines="0.2 0 0.2 1"/>
-      </circle>
-      <text x="50%" y="50%" text-anchor="middle" dominant-baseline="central" class="gval">${g.value}%</text>
-    </svg>
-    <div class="glabel">${g.label}</div>
-  `;
-  container.appendChild(div);
-});
+async function syncData(){
+  const syncLabel = document.getElementById('sync-label');
+  try{
+    syncLabel.textContent = 'Syncing…';
+    const res = await fetch(CSV_URL, { cache: 'no-store' });
+    if (!res.ok) throw new Error('Fetch failed: ' + res.status);
+    const text = await res.text();
+    const rows = parseCSV(text);
+
+    renderGroup('m', rows[POS.meters].slice(0, 5));
+    renderGroup('d', rows[POS.dcu].slice(0, 5));
+    setText('abnormal-value', fmt(num(rows[POS.abnormal][0])));
+    renderGauges(rows[POS.collection].slice(1, 5));
+
+    syncLabel.textContent = 'Live — synced';
+    syncLabel.style.color = 'var(--green)';
+  } catch (err){
+    console.error('Sync error:', err);
+    syncLabel.textContent = 'Sync failed — showing last known data';
+    syncLabel.style.color = 'var(--amber)';
+  } finally {
+    document.getElementById('now').textContent = new Date().toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
+  }
+}
+
+syncData();
+setInterval(syncData, REFRESH_MS);
 </script>
 
 </body>
