@@ -375,9 +375,8 @@
 
 <script>
 /* ---------- CONFIG ---------- */
-const SHEET_ID = '1Y-zYKaLupgDc7Ys9zn28MFFQd1tgLgp9OvDlv-v4txU';
-const GID = '0'; // change if the data lives on a different tab
-const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID}&cachebust=${Date.now()}`;
+const PUBLISHED_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQbON5DUgzR0s1SRph7nWAh9v3Ii4pOAataxhvTDT9hT2yJZfcxC7tCAqRnfnY5fBTOduCvAbnblSky/pub?gid=0&single=true&output=csv';
+const CSV_URL = `${PUBLISHED_CSV_URL}&cachebust=${Date.now()}`;
 const REFRESH_MS = 60000; // re-fetch every 60s
 
 /* Row/column positions (0-indexed) matching the sheet layout:
