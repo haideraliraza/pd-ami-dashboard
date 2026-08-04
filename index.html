@@ -671,6 +671,17 @@ function formatLogDate(str){
   return { date, time };
 }
 
+function dedupeRowsByDay(rows){
+  const byDay = new Map();
+  rows.forEach(r => {
+    const d = new Date(r[0]);
+    if (isNaN(d)) return;
+    const key = d.toDateString(); // e.g. "Tue Aug 04 2026" — later rows for the same key overwrite earlier ones
+    byDay.set(key, r);
+  });
+  return Array.from(byDay.values()); // insertion order = chronological order of first-seen day
+}
+
 function renderTrend(allRows){
   const panel = document.getElementById('trend-panel');
   const headerIdx = allRows.findIndex(r => r[0] && String(r[0]).trim().toLowerCase() === 'date');
@@ -678,7 +689,8 @@ function renderTrend(allRows){
     panel.innerHTML = `<div class="trend-empty">No log found yet — check the "Log Snapshot" box in the sheet after your next update to start recording history.</div>`;
     return;
   }
-  const rows = allRows.slice(headerIdx + 1).filter(r => r.length && r[0]); // rows with a date in col A
+  const allLoggedRows = allRows.slice(headerIdx + 1).filter(r => r.length && r[0]); // rows with a date in col A
+  const rows = dedupeRowsByDay(allLoggedRows); // keep only the latest snapshot per calendar day
   if (rows.length < 2){
     panel.innerHTML = `<div class="trend-empty">${rows.length} day${rows.length === 1 ? '' : 's'} logged so far — check the "Log Snapshot" box in the sheet once you finish an update to add today's reading. Trend charts need at least 2 logged days.</div>`;
     return;
