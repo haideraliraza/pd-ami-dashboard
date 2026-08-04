@@ -450,7 +450,7 @@
 
   <footer>
     <span>Source: PD AMI Dashboard (Google Sheets)</span>
-    <span>Static snapshot — figures do not auto-refresh</span>
+    <span>Auto-refreshes hourly — use ⟳ to sync now</span>
   </footer>
 
 </div>
@@ -537,8 +537,8 @@ function renderGroup(prefix, cells){
 
 const size = 108, stroke = 8, r = (size - stroke) / 2, c = 2 * Math.PI * r;
 function colorFor(v){
-  if (v >= 90) return 'var(--green)';
-  if (v >= 80) return 'var(--amber)';
+  if (v > 85) return 'var(--green)';
+  if (v >= 70) return 'var(--amber)';
   return 'var(--red)';
 }
 function renderGauges(values){
@@ -572,35 +572,39 @@ function renderGauges(values){
 /* History CSV expected columns: Date, Meters Commissioned, DCU Commissioned,
    Abnormal Devices, Daily Profile, Monthly Profile, Energy Load Profile, Quality Load Profile */
 const TREND_SERIES = [
-  { label: 'Initial', col: 1, fmt: 'int' },
-  { label: 'Discover', col: 2, fmt: 'int' },
-  { label: 'Commissioning', col: 3, fmt: 'int' },
+  { label: 'Initial', col: 1, fmt: 'int', invert: true },
+  { label: 'Discover', col: 2, fmt: 'int', invert: true },
+  { label: 'Commissioning', col: 3, fmt: 'int', invert: true },
   { label: 'Commissioned', col: 4, fmt: 'int' },
   { label: 'Abnormal Devices', col: 5, fmt: 'int', invert: true }
 ];
 
-function buildBarChart(values, invert){
+function buildBarChart(values, invert, baseValue){
   const w = 220, h = 90, pad = 4, gap = 6;
   const n = values.length;
-  const max = Math.max(...values, 1);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = (max - min) || (max * 0.1) || 1;
+  // zoom the y-axis into the value range (with a little breathing room)
+  // rather than a zero baseline, so small day-to-day moves stay visible
+  const padded = range * 0.25;
+  const scaleMin = min - padded;
+  const scaleMax = max + padded;
+  const scaleRange = (scaleMax - scaleMin) || 1;
   const barW = Math.max(((w - pad*2) - gap*(n-1)) / n, 1);
 
-  const first = values[0], last = values[values.length-1];
-  const delta = last - first;
-  let latestColor = 'var(--muted)';
-  if (Math.abs(delta) > 0.0001){
-    const isUp = delta > 0;
-    const good = invert ? !isUp : isUp;
-    latestColor = good ? 'var(--green)' : 'var(--red)';
-  }
-
   const bars = values.map((v, i) => {
-    const bh = Math.max((v / max) * (h - pad*2), v > 0 ? 2 : 0);
+    const bh = ((v - scaleMin) / scaleRange) * (h - pad*2);
     const x = pad + i * (barW + gap);
     const y = h - pad - bh;
-    const isLast = i === n - 1;
-    const fill = isLast ? latestColor : 'var(--panel-line)';
-    return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${bh.toFixed(1)}" fill="${fill}" rx="1.5"/>`;
+    const prev = i === 0 ? baseValue : values[i-1];
+    let color = 'var(--muted)';
+    if (prev !== null && prev !== undefined && v !== prev){
+      const isUp = v > prev;
+      const good = invert ? !isUp : isUp;
+      color = good ? 'var(--green)' : 'var(--red)';
+    }
+    return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(bh,1.5).toFixed(1)}" fill="${color}" rx="1.5"/>`;
   }).join('');
 
   return `<svg width="100%" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">${bars}</svg>`;
@@ -624,13 +628,19 @@ function renderTrend(allRows){
     panel.innerHTML = `<div class="trend-empty">${rows.length} day${rows.length === 1 ? '' : 's'} logged so far — check the "Log Snapshot" box in the sheet once you finish an update to add today's reading. Trend charts need at least 2 logged days.</div>`;
     return;
   }
-  const last7 = rows.slice(-7);
+  const windowSize = 7;
+  const extended = rows.slice(-(windowSize + 1));
+  const hasBase = extended.length > windowSize;
+  const displayRows = hasBase ? extended.slice(1) : extended;
+  const baseRow = hasBase ? extended[0] : null;
+
   const grid = document.createElement('div');
   grid.className = 'trend-grid';
 
   TREND_SERIES.forEach(series => {
-    const values = last7.map(r => num(r[series.col]));
-    const dates = last7.map(r => shortDate(r[0]));
+    const values = displayRows.map(r => num(r[series.col]));
+    const dates = displayRows.map(r => shortDate(r[0]));
+    const baseValue = baseRow ? num(baseRow[series.col]) : null;
     const first = values[0], last = values[values.length - 1];
     const delta = last - first;
     let dir = 'flat', arrow = '→';
@@ -647,7 +657,7 @@ function renderTrend(allRows){
     card.innerHTML = `
       <div class="label">${series.label}</div>
       <div class="delta ${dir}">${arrow} ${deltaText}</div>
-      <div class="chart">${buildBarChart(values, series.invert)}</div>
+      <div class="chart">${buildBarChart(values, series.invert, baseValue)}</div>
       <div class="bar-values">${values.map((v, i) => `<span class="${i === values.length-1 ? 'latest' : ''}">${fmt(v)}</span>`).join('')}</div>
       <div class="bar-dates">${dates.map(d => `<span>${d}</span>`).join('')}</div>
     `;
