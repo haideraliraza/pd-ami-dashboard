@@ -313,24 +313,40 @@
     gap: 6px;
     margin-top: 6px;
   }
-  .trend-card .bar-dates span{
+  .trend-card .bar-dates .date-chip{
     flex:1;
-    text-align:center;
+    display:flex;
+    flex-direction: column;
+    align-items: center;
     font-family: var(--mono);
+    background: var(--grid);
+    border: 1px solid var(--panel-line);
+    border-radius: 3px;
+    padding: 3px 0 4px;
+  }
+  .trend-card .bar-dates .date-chip .d{
     font-size: 8px;
     letter-spacing: 0.03em;
     text-transform: uppercase;
     color: var(--muted);
-    background: var(--grid);
-    border: 1px solid var(--panel-line);
-    border-radius: 3px;
-    padding: 3px 0;
   }
-  .trend-card .bar-dates span.latest{
-    color: var(--text);
+  .trend-card .bar-dates .date-chip .t{
+    font-size: 7px;
+    color: var(--muted);
+    opacity: 0.75;
+    margin-top: 2px;
+  }
+  .trend-card .bar-dates .date-chip.latest{
     background: var(--green-dim);
     border-color: var(--green);
+  }
+  .trend-card .bar-dates .date-chip.latest .d{
+    color: var(--text);
     font-weight: 600;
+  }
+  .trend-card .bar-dates .date-chip.latest .t{
+    color: var(--green);
+    opacity: 1;
   }
 
   .trend-empty{
@@ -640,17 +656,19 @@ function buildBarChart(values, invert, baseValue, dates, seriesLabel){
       const good = invert ? !isUp : isUp;
       color = good ? 'var(--green)' : 'var(--red)';
     }
-    const tip = `${seriesLabel}: ${fmt(v)} — ${dates[i]}`;
+    const tip = `${seriesLabel}: ${fmt(v)} — ${dates[i].date} ${dates[i].time}`;
     return `<rect class="bar-rect" data-tip="${tip}" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(bh,1.5).toFixed(1)}" fill="${color}" rx="1.5"/>`;
   }).join('');
 
   return `<svg width="100%" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">${bars}</svg>`;
 }
 
-function shortDate(str){
+function formatLogDate(str){
   const d = new Date(str);
-  if (isNaN(d)) return '';
-  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+  if (isNaN(d)) return { date: '', time: '' };
+  const date = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+  const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+  return { date, time };
 }
 
 function renderTrend(allRows){
@@ -676,7 +694,7 @@ function renderTrend(allRows){
 
   TREND_SERIES.forEach(series => {
     const values = displayRows.map(r => num(r[series.col]));
-    const dates = displayRows.map(r => shortDate(r[0]));
+    const dates = displayRows.map(r => formatLogDate(r[0]));
     const baseValue = baseRow ? num(baseRow[series.col]) : null;
     const first = values[0], last = values[values.length - 1];
     const delta = last - first;
@@ -696,7 +714,7 @@ function renderTrend(allRows){
       <div class="delta ${dir}">${arrow} ${deltaText}</div>
       <div class="chart">${buildBarChart(values, series.invert, baseValue, dates, series.label)}</div>
       <div class="bar-values">${values.map((v, i) => `<span class="${i === values.length-1 ? 'latest' : ''}">${fmt(v)}</span>`).join('')}</div>
-      <div class="bar-dates">${dates.map((d, i) => `<span class="${i === dates.length-1 ? 'latest' : ''}">${d}</span>`).join('')}</div>
+      <div class="bar-dates">${dates.map((d, i) => `<div class="date-chip ${i === dates.length-1 ? 'latest' : ''}"><span class="d">${d.date}</span><span class="t">${d.time}</span></div>`).join('')}</div>
     `;
     grid.appendChild(card);
   });
