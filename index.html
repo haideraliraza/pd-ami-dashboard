@@ -422,7 +422,7 @@
   </section>
 
   <section class="block">
-    <div class="block-title">Trend (Daily)</div>
+    <div class="block-title">Meters Trend (Daily)</div>
     <div class="trend-panel" id="trend-panel">
       <div class="trend-empty">Trend needs a daily history log to plot against — see setup notes for enabling this section.</div>
     </div>
@@ -553,13 +553,10 @@ function renderGauges(values){
 /* History CSV expected columns: Date, Meters Commissioned, DCU Commissioned,
    Abnormal Devices, Daily Profile, Monthly Profile, Energy Load Profile, Quality Load Profile */
 const TREND_SERIES = [
-  { label: 'Meters Commissioned', col: 1, fmt: 'int' },
-  { label: 'DCU Commissioned', col: 2, fmt: 'int' },
-  { label: 'Abnormal Devices', col: 3, fmt: 'int', invert: true },
-  { label: 'Daily Profile', col: 4, fmt: 'pct' },
-  { label: 'Monthly Profile', col: 5, fmt: 'pct' },
-  { label: 'Energy Load Profile', col: 6, fmt: 'pct' },
-  { label: 'Quality Load Profile', col: 7, fmt: 'pct' }
+  { label: 'Initial', col: 1, fmt: 'int' },
+  { label: 'Discover', col: 2, fmt: 'int' },
+  { label: 'Commissioning', col: 3, fmt: 'int' },
+  { label: 'Commissioned', col: 4, fmt: 'int' }
 ];
 
 function buildSparkline(values){
