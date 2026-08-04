@@ -556,24 +556,35 @@ const TREND_SERIES = [
   { label: 'Initial', col: 1, fmt: 'int' },
   { label: 'Discover', col: 2, fmt: 'int' },
   { label: 'Commissioning', col: 3, fmt: 'int' },
-  { label: 'Commissioned', col: 4, fmt: 'int' }
+  { label: 'Commissioned', col: 4, fmt: 'int' },
+  { label: 'Abnormal Devices', col: 5, fmt: 'int', invert: true }
 ];
 
-function buildSparkline(values){
-  const w = 100, h = 32, pad = 3;
-  const min = Math.min(...values), max = Math.max(...values);
-  const range = (max - min) || 1;
-  const pts = values.map((v, i) => {
-    const x = pad + (i / (values.length - 1 || 1)) * (w - pad*2);
-    const y = h - pad - ((v - min) / range) * (h - pad*2);
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  });
-  const last = values[values.length-1], first = values[0];
-  const col = last === first ? 'var(--muted)' : (last > first ? 'var(--green)' : 'var(--red)');
-  return `<svg width="100%" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
-    <polyline points="${pts.join(' ')}" fill="none" stroke="${col}" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>
-    <circle cx="${pts[pts.length-1].split(',')[0]}" cy="${pts[pts.length-1].split(',')[1]}" r="2.2" fill="${col}"/>
-  </svg>`;
+function buildBarChart(values, invert){
+  const w = 100, h = 32, pad = 2, gap = 2;
+  const n = values.length;
+  const max = Math.max(...values, 1);
+  const barW = Math.max(((w - pad*2) - gap*(n-1)) / n, 1);
+
+  const first = values[0], last = values[values.length-1];
+  const delta = last - first;
+  let latestColor = 'var(--muted)';
+  if (Math.abs(delta) > 0.0001){
+    const isUp = delta > 0;
+    const good = invert ? !isUp : isUp;
+    latestColor = good ? 'var(--green)' : 'var(--red)';
+  }
+
+  const bars = values.map((v, i) => {
+    const bh = Math.max((v / max) * (h - pad*2), v > 0 ? 1.5 : 0);
+    const x = pad + i * (barW + gap);
+    const y = h - pad - bh;
+    const isLast = i === n - 1;
+    const fill = isLast ? latestColor : 'var(--panel-line)';
+    return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${bh.toFixed(1)}" fill="${fill}" rx="0.5"/>`;
+  }).join('');
+
+  return `<svg width="100%" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">${bars}</svg>`;
 }
 
 function renderTrend(allRows){
@@ -608,7 +619,7 @@ function renderTrend(allRows){
     row.className = 'trend-row';
     row.innerHTML = `
       <div class="trend-label">${series.label}</div>
-      <div class="trend-spark">${buildSparkline(values)}</div>
+      <div class="trend-spark">${buildBarChart(values, series.invert)}</div>
       <div class="trend-delta ${dir}">${arrow} ${deltaText}</div>
     `;
     panel.appendChild(row);
