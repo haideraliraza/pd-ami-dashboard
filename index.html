@@ -249,6 +249,63 @@
     flex-wrap: wrap;
     gap: 10px;
   }
+
+  #refresh-btn{
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1;
+    color: var(--green);
+    background: transparent;
+    border: 1px solid var(--panel-line);
+    border-radius: 4px;
+    width: 24px; height: 24px;
+    cursor: pointer;
+    display:flex; align-items:center; justify-content:center;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  #refresh-btn:hover{ border-color: var(--green); background: var(--green-dim); }
+  #refresh-btn:disabled{ opacity: 0.5; cursor: default; }
+  #refresh-btn.spinning{ animation: spin 0.8s linear infinite; }
+  @keyframes spin{ from{ transform: rotate(0deg); } to{ transform: rotate(360deg); } }
+
+  .trend-panel{
+    background: var(--panel);
+    padding: 20px 22px;
+  }
+  .trend-row{
+    display:flex;
+    align-items:center;
+    gap: 18px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--panel-line);
+  }
+  .trend-row:last-child{ border-bottom: none; }
+  .trend-label{
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--text);
+    width: 170px;
+    flex-shrink: 0;
+  }
+  .trend-spark{ flex: 1; min-width: 0; }
+  .trend-delta{
+    font-family: var(--mono);
+    font-size: 12px;
+    width: 90px;
+    text-align: right;
+    flex-shrink: 0;
+    display:flex; align-items:center; justify-content:flex-end; gap: 4px;
+  }
+  .trend-delta.up{ color: var(--green); }
+  .trend-delta.down{ color: var(--red); }
+  .trend-delta.flat{ color: var(--muted); }
+  .trend-empty{
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.7;
+  }
+  .trend-empty a{ color: var(--green); }
 </style>
 </head>
 <body>
@@ -260,7 +317,11 @@
       <h1>PD AMI Dashboard</h1>
     </div>
     <div class="timestamp">
-      <span id="sync-label">Syncing…</span><br><span id="now">—</span>
+      <div style="display:flex; align-items:center; gap:10px; justify-content:flex-end;">
+        <span id="sync-label">Syncing…</span>
+        <button id="refresh-btn" title="Refresh now">⟳</button>
+      </div>
+      <span id="now">—</span>
     </div>
   </header>
 
@@ -361,10 +422,12 @@
   </section>
 
   <section class="block">
-    <div class="hes-note">
-      <b>HES Status</b> — this panel exists in the source sheet but did not export any values (likely a formula-driven widget or chart), so it isn't reproduced here. Re-run the conversion once the sheet's HES section has plain cell values, or tell me the figures and I'll wire it in.
+    <div class="block-title">Trend (Daily)</div>
+    <div class="trend-panel" id="trend-panel">
+      <div class="trend-empty">Trend needs a daily history log to plot against — see setup notes for enabling this section.</div>
     </div>
   </section>
+
 
   <footer>
     <span>Source: PD AMI Dashboard (Google Sheets)</span>
@@ -377,7 +440,17 @@
 /* ---------- CONFIG ---------- */
 const PUBLISHED_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQbON5DUgzR0s1SRph7nWAh9v3Ii4pOAataxhvTDT9hT2yJZfcxC7tCAqRnfnY5fBTOduCvAbnblSky/pub?gid=0&single=true&output=csv';
 const CSV_URL = `${PUBLISHED_CSV_URL}&cachebust=${Date.now()}`;
-const REFRESH_MS = 60000; // re-fetch every 60s
+
+/* Once a "History" tab is set up (see setup notes) and published to web,
+   paste its CSV URL here to activate the trend section. Leave blank to
+   keep the trend panel in its "not set up yet" state. */
+/* The daily snapshot log (written by the Apps Script) lives in the same
+   tab, headed by a row starting with "Date" — arrives in the same CSV
+   fetch as the live figures, so no second URL is needed. We locate it
+   by its header text rather than a fixed row number, so it keeps
+   working even if a row or two shifts. */
+
+const REFRESH_MS = 3600000; // re-fetch every hour
 
 /* Row/column positions (0-indexed) matching the sheet layout:
    row 2 -> Meters:  Total, Initial, Discover, Commissioning, Commissioned (cols 0-4)
@@ -405,7 +478,7 @@ function parseCSV(text){
       if (ch === '"'){ inQuotes = true; }
       else if (ch === ','){ row.push(field); field = ''; }
       else if (ch === '\n' || ch === '\r'){
-        if (field !== '' || row.length){ row.push(field); rows.push(row); }
+        row.push(field); rows.push(row);
         field = ''; row = [];
         if (ch === '\r' && next === '\n') i++;
       } else { field += ch; }
@@ -476,8 +549,80 @@ function renderGauges(values){
   });
 }
 
+/* ---------- TREND ---------- */
+/* History CSV expected columns: Date, Meters Commissioned, DCU Commissioned,
+   Abnormal Devices, Daily Profile, Monthly Profile, Energy Load Profile, Quality Load Profile */
+const TREND_SERIES = [
+  { label: 'Meters Commissioned', col: 1, fmt: 'int' },
+  { label: 'DCU Commissioned', col: 2, fmt: 'int' },
+  { label: 'Abnormal Devices', col: 3, fmt: 'int', invert: true },
+  { label: 'Daily Profile', col: 4, fmt: 'pct' },
+  { label: 'Monthly Profile', col: 5, fmt: 'pct' },
+  { label: 'Energy Load Profile', col: 6, fmt: 'pct' },
+  { label: 'Quality Load Profile', col: 7, fmt: 'pct' }
+];
+
+function buildSparkline(values){
+  const w = 100, h = 32, pad = 3;
+  const min = Math.min(...values), max = Math.max(...values);
+  const range = (max - min) || 1;
+  const pts = values.map((v, i) => {
+    const x = pad + (i / (values.length - 1 || 1)) * (w - pad*2);
+    const y = h - pad - ((v - min) / range) * (h - pad*2);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+  const last = values[values.length-1], first = values[0];
+  const col = last === first ? 'var(--muted)' : (last > first ? 'var(--green)' : 'var(--red)');
+  return `<svg width="100%" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+    <polyline points="${pts.join(' ')}" fill="none" stroke="${col}" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>
+    <circle cx="${pts[pts.length-1].split(',')[0]}" cy="${pts[pts.length-1].split(',')[1]}" r="2.2" fill="${col}"/>
+  </svg>`;
+}
+
+function renderTrend(allRows){
+  const panel = document.getElementById('trend-panel');
+  const headerIdx = allRows.findIndex(r => r[0] && String(r[0]).trim().toLowerCase() === 'date');
+  if (headerIdx === -1){
+    panel.innerHTML = `<div class="trend-empty">No log found yet — check the "Log Snapshot" box in the sheet after your next update to start recording history.</div>`;
+    return;
+  }
+  const rows = allRows.slice(headerIdx + 1).filter(r => r.length && r[0]); // rows with a date in col A
+  if (rows.length < 2){
+    panel.innerHTML = `<div class="trend-empty">${rows.length} day${rows.length === 1 ? '' : 's'} logged so far — check the "Log Snapshot" box in the sheet once you finish an update to add today's reading. Trend lines need at least 2 logged days.</div>`;
+    return;
+  }
+  const last30 = rows.slice(-30);
+  panel.innerHTML = '';
+  TREND_SERIES.forEach(series => {
+    const values = last30.map(r => num(r[series.col]));
+    const first = values[0], last = values[values.length - 1];
+    const delta = last - first;
+    let dir = 'flat', arrow = '→';
+    if (Math.abs(delta) > 0.0001){
+      const isUp = delta > 0;
+      // for metrics where "up" is bad (e.g. abnormal devices), invert the color meaning
+      dir = series.invert ? (isUp ? 'down' : 'up') : (isUp ? 'up' : 'down');
+      arrow = isUp ? '▲' : '▼';
+    }
+    const deltaText = series.fmt === 'pct'
+      ? `${delta >= 0 ? '+' : ''}${delta.toFixed(2)}pt`
+      : `${delta >= 0 ? '+' : ''}${fmt(Math.round(delta))}`;
+    const row = document.createElement('div');
+    row.className = 'trend-row';
+    row.innerHTML = `
+      <div class="trend-label">${series.label}</div>
+      <div class="trend-spark">${buildSparkline(values)}</div>
+      <div class="trend-delta ${dir}">${arrow} ${deltaText}</div>
+    `;
+    panel.appendChild(row);
+  });
+}
+
 async function syncData(){
   const syncLabel = document.getElementById('sync-label');
+  const btn = document.getElementById('refresh-btn');
+  btn.disabled = true;
+  btn.classList.add('spinning');
   try{
     syncLabel.textContent = 'Syncing…';
     const res = await fetch(CSV_URL, { cache: 'no-store' });
@@ -489,6 +634,7 @@ async function syncData(){
     renderGroup('d', rows[POS.dcu].slice(0, 5));
     setText('abnormal-value', fmt(num(rows[POS.abnormal][0])));
     renderGauges(rows[POS.collection].slice(1, 5));
+    renderTrend(rows);
 
     syncLabel.textContent = 'Live — synced';
     syncLabel.style.color = 'var(--green)';
@@ -498,8 +644,12 @@ async function syncData(){
     syncLabel.style.color = 'var(--amber)';
   } finally {
     document.getElementById('now').textContent = new Date().toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
+    btn.disabled = false;
+    btn.classList.remove('spinning');
   }
 }
+
+document.getElementById('refresh-btn').addEventListener('click', syncData);
 
 syncData();
 setInterval(syncData, REFRESH_MS);
