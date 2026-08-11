@@ -32,6 +32,7 @@
     font-family: var(--sans);
     min-height: 100vh;
     padding: 32px 24px 80px;
+    overflow-x: hidden;
   }
   .wrap{ max-width: 1180px; margin: 0 auto; }
 
@@ -274,6 +275,8 @@
     gap: 1px;
     background: var(--panel-line);
     border: 1px solid var(--panel-line);
+    width: 100%;
+    max-width: 100%;
   }
   @media (max-width: 980px){ .trend-grid{ grid-template-columns: repeat(2, 1fr); } }
   @media (max-width: 480px){ .trend-grid{ grid-template-columns: 1fr; } }
@@ -281,6 +284,8 @@
   .trend-card{
     background: var(--panel);
     padding: 18px 16px 14px;
+    min-width: 0;
+    overflow: hidden;
   }
   .trend-card .label{
     font-family: var(--mono);
@@ -306,7 +311,12 @@
     font-size: 9px;
     color: var(--muted);
   }
-  .trend-card .bar-values span{ flex:1; text-align:center; }
+  .trend-card .bar-values span{
+    flex:1;
+    min-width: 0;
+    text-align:center;
+    overflow-wrap: anywhere;
+  }
   .trend-card .bar-values span.latest{ color: var(--text); font-weight: 600; }
   .trend-card .bar-dates{
     display:flex;
@@ -315,6 +325,7 @@
   }
   .trend-card .bar-dates .date-chip{
     flex:1;
+    min-width: 0;
     display:flex;
     flex-direction: column;
     align-items: center;
@@ -695,7 +706,7 @@ function renderTrend(allRows){
     panel.innerHTML = `<div class="trend-empty">${rows.length} day${rows.length === 1 ? '' : 's'} logged so far — check the "Log Snapshot" box in the sheet once you finish an update to add today's reading. Trend charts need at least 2 logged days.</div>`;
     return;
   }
-  const windowSize = 7;
+  const windowSize = 5;
   const extended = rows.slice(-(windowSize + 1));
   const hasBase = extended.length > windowSize;
   const displayRows = hasBase ? extended.slice(1) : extended;
