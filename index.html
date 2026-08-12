@@ -112,6 +112,8 @@
     background: var(--panel);
     padding: 20px 18px;
     position: relative;
+    min-width: 0;
+    overflow: hidden;
   }
   .stat.total{ background: #131c1a; }
   .stat .label{
@@ -271,15 +273,23 @@
 
   .trend-grid{
     display:grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
     gap: 1px;
     background: var(--panel-line);
     border: 1px solid var(--panel-line);
     width: 100%;
     max-width: 100%;
   }
-  @media (max-width: 980px){ .trend-grid{ grid-template-columns: repeat(2, 1fr); } }
-  @media (max-width: 480px){ .trend-grid{ grid-template-columns: 1fr; } }
+
+  .grid-auto{
+    display:grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1px;
+    background: var(--panel-line);
+    border: 1px solid var(--panel-line);
+    width: 100%;
+    max-width: 100%;
+  }
 
   .trend-card{
     background: var(--panel);
@@ -508,6 +518,20 @@
     </div>
   </section>
 
+  <section class="block">
+    <div class="block-title">Neutral Lost by Division</div>
+    <div id="neutral-live" class="grid-auto">
+      <div class="trend-empty">No Neutral Lost table found at columns I:J yet.</div>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="block-title">Neutral Lost Trend</div>
+    <div id="neutral-trend-panel">
+      <div class="trend-empty">Trend needs a daily history log — check the "Neutral Lost Log Snapshot" box in the sheet after your next update to start recording history.</div>
+    </div>
+  </section>
+
 
   <footer>
     <span>Source: PD AMI Dashboard (Google Sheets)</span>
@@ -682,10 +706,10 @@ function formatLogDate(str){
   return { date, time };
 }
 
-function dedupeRowsByDay(rows){
+function dedupeRowsByDay(rows, dateCol = 0){
   const byDay = new Map();
   rows.forEach(r => {
-    const d = new Date(r[0]);
+    const d = new Date(r[dateCol]);
     if (isNaN(d)) return;
     const key = d.toDateString(); // e.g. "Tue Aug 04 2026" — later rows for the same key overwrite earlier ones
     byDay.set(key, r);
@@ -746,6 +770,124 @@ function renderTrend(allRows){
   panel.appendChild(grid);
 }
 
+/* ---------- NEUTRAL LOST (live panel) ---------- */
+/* Table lives at columns I:J, starting row 2: Division name in I,
+   count in J, until a "Grand Total" row is hit. Divisions aren't
+   hardcoded — read dynamically so adding/renaming rows just works. */
+function parseNeutralLostLive(rows){
+  const divisions = [];
+  let grandTotal = null;
+  for (let r = 1; r < rows.length; r++){ // row index 1 = sheet row 2 (skip header row 1)
+    const label = (rows[r] && rows[r][8]) || ''; // column I
+    if (!label){
+      if (divisions.length) break; // blank after data started = end of table
+      continue; // blank before data starts = skip
+    }
+    const value = num(rows[r][9]); // column J
+    if (String(label).trim().toLowerCase() === 'grand total'){
+      grandTotal = value;
+      break;
+    }
+    divisions.push({ name: String(label).trim(), value });
+  }
+  return { divisions, grandTotal };
+}
+
+function renderNeutralLive(rows){
+  const container = document.getElementById('neutral-live');
+  const { divisions, grandTotal } = parseNeutralLostLive(rows);
+  if (!divisions.length){
+    container.innerHTML = `<div class="trend-empty">No Neutral Lost table found at columns I:J yet.</div>`;
+    return;
+  }
+  let html = divisions.map(d => `
+    <div class="stat">
+      <div class="label">${d.name}</div>
+      <div class="value">${fmt(d.value)}</div>
+    </div>
+  `).join('');
+  if (grandTotal !== null){
+    html += `
+      <div class="stat total">
+        <div class="label">Grand Total</div>
+        <div class="value" style="color:var(--amber)">${fmt(grandTotal)}</div>
+      </div>
+    `;
+  }
+  container.innerHTML = html;
+}
+
+/* ---------- NEUTRAL LOST (trend) ---------- */
+/* Log header (row with "Date" in column I) defines the series — read
+   dynamically from the header row itself rather than hardcoded, so it
+   tracks whatever divisions were present the first time it was logged.
+   Rising Neutral Lost is always treated as unfavorable (invert: true). */
+function renderNeutralTrend(allRows){
+  const panel = document.getElementById('neutral-trend-panel');
+  const headerIdx = allRows.findIndex(r => r[8] && String(r[8]).trim().toLowerCase() === 'date');
+  if (headerIdx === -1){
+    panel.innerHTML = `<div class="trend-empty">No log found yet — check the "Neutral Lost Log Snapshot" box in the sheet after your next update to start recording history.</div>`;
+    return;
+  }
+
+  const headerRow = allRows[headerIdx];
+  const seriesDefs = [];
+  for (let c = 9; c < headerRow.length; c++){
+    const label = headerRow[c];
+    if (!label) break;
+    seriesDefs.push({ label: String(label).trim(), col: c, invert: true });
+  }
+  if (!seriesDefs.length){
+    panel.innerHTML = `<div class="trend-empty">Log header found but no division columns detected.</div>`;
+    return;
+  }
+
+  const allLoggedRows = allRows.slice(headerIdx + 1).filter(r => r[8]);
+  const rows = dedupeRowsByDay(allLoggedRows, 8); // keep only the latest snapshot per calendar day
+  if (rows.length < 2){
+    panel.innerHTML = `<div class="trend-empty">${rows.length} day${rows.length === 1 ? '' : 's'} logged so far — check the "Neutral Lost Log Snapshot" box once you finish an update to add today's reading. Trend charts need at least 2 logged days.</div>`;
+    return;
+  }
+
+  const windowSize = 5;
+  const extended = rows.slice(-(windowSize + 1));
+  const hasBase = extended.length > windowSize;
+  const displayRows = hasBase ? extended.slice(1) : extended;
+  const baseRow = hasBase ? extended[0] : null;
+
+  const grid = document.createElement('div');
+  grid.className = 'trend-grid';
+
+  seriesDefs.forEach(series => {
+    const values = displayRows.map(r => num(r[series.col]));
+    const dates = displayRows.map(r => formatLogDate(r[8]));
+    const baseValue = baseRow ? num(baseRow[series.col]) : null;
+    const first = values[0], last = values[values.length - 1];
+    const delta = last - first;
+    let dir = 'flat', arrow = '→';
+    if (Math.abs(delta) > 0.0001){
+      const isUp = delta > 0;
+      dir = isUp ? 'down' : 'up'; // rising Neutral Lost is always unfavorable
+      arrow = isUp ? '▲' : '▼';
+    }
+    const deltaText = `${delta >= 0 ? '+' : ''}${fmt(Math.round(delta))} over ${values.length}d`;
+
+    const card = document.createElement('div');
+    card.className = 'trend-card';
+    card.innerHTML = `
+      <div class="label">${series.label}</div>
+      <div class="delta ${dir}">${arrow} ${deltaText}</div>
+      <div class="chart">${buildBarChart(values, series.invert, baseValue, dates, series.label)}</div>
+      <div class="bar-values">${values.map((v, i) => `<span class="${i === values.length-1 ? 'latest' : ''}">${fmt(v)}</span>`).join('')}</div>
+      <div class="bar-dates">${dates.map((d, i) => `<div class="date-chip ${i === dates.length-1 ? 'latest' : ''}"><span class="d">${d.date}</span><span class="t">${d.time}</span></div>`).join('')}</div>
+    `;
+    grid.appendChild(card);
+  });
+
+  panel.innerHTML = '';
+  panel.appendChild(grid);
+}
+
 async function syncData(){
   const syncLabel = document.getElementById('sync-label');
   const btn = document.getElementById('refresh-btn');
@@ -763,6 +905,8 @@ async function syncData(){
     setText('abnormal-value', fmt(num(rows[POS.abnormal][0])));
     renderGauges(rows[POS.collection].slice(1, 5));
     renderTrend(rows);
+    renderNeutralLive(rows);
+    renderNeutralTrend(rows);
 
     syncLabel.textContent = 'Live — synced';
     syncLabel.style.color = 'var(--green)';
