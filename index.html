@@ -10,6 +10,7 @@
   :root{
     --bg: #0a0f0e;
     --panel: #101615;
+    --panel-alt: #131c1a;
     --panel-line: #1e2826;
     --grid: #182220;
     --text: #e7ece9;
@@ -22,6 +23,20 @@
     --mono: 'IBM Plex Mono', monospace;
     --sans: 'IBM Plex Sans', sans-serif;
   }
+  body.light-theme{
+    --bg: #f3f6f4;
+    --panel: #ffffff;
+    --panel-alt: #eafbf1;
+    --panel-line: #e0e6e2;
+    --grid: #edf2ef;
+    --text: #16211d;
+    --muted: #5e6d67;
+    --green: #17945a;
+    --green-dim: #d8f5e5;
+    --amber: #a8660a;
+    --amber-dim: #fbe9c9;
+    --red: #c23f38;
+  }
   *{box-sizing:border-box; margin:0; padding:0;}
   body{
     background:
@@ -33,6 +48,7 @@
     min-height: 100vh;
     padding: 32px 24px 80px;
     overflow-x: hidden;
+    transition: background-color 0.2s, color 0.2s;
   }
   .wrap{ max-width: 1180px; margin: 0 auto; }
 
@@ -44,6 +60,53 @@
     flex-wrap: wrap;
     gap: 16px;
   }
+
+  .top-bar{
+    display:flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .page-nav{ display:flex; gap: 8px; }
+  .page-btn{
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 9px 18px;
+    background: var(--panel);
+    border: 1px solid var(--panel-line);
+    color: var(--muted);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+  }
+  .page-btn:hover{ border-color: var(--green); color: var(--text); }
+  .page-btn.active{
+    background: var(--green-dim);
+    border-color: var(--green);
+    color: var(--text);
+  }
+
+  .theme-btn{
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    padding: 9px 16px;
+    background: var(--panel);
+    border: 1px solid var(--panel-line);
+    color: var(--muted);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+  }
+  .theme-btn:hover{ border-color: var(--green); color: var(--text); }
+
+  .page{ display:none; }
+  .page.active{ display:block; }
+
   .eyebrow{
     font-family: var(--mono);
     font-size: 11px;
@@ -115,7 +178,7 @@
     min-width: 0;
     overflow: hidden;
   }
-  .stat.total{ background: #131c1a; }
+  .stat.total{ background: var(--panel-alt); }
   .stat .label{
     font-family: var(--mono);
     font-size: 10.5px;
@@ -291,6 +354,29 @@
     max-width: 100%;
   }
 
+  .trend-grid-3{
+    display:grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--panel-line);
+    border: 1px solid var(--panel-line);
+    width: 100%;
+    max-width: 100%;
+  }
+  @media (max-width: 820px){ .trend-grid-3{ grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 480px){ .trend-grid-3{ grid-template-columns: 1fr; } }
+
+  .trend-total-row{
+    display:grid;
+    grid-template-columns: 1fr;
+    gap: 1px;
+    background: var(--panel-line);
+    border: 1px solid var(--panel-line);
+    margin-top: 1px;
+    width: 100%;
+    max-width: 100%;
+  }
+
   .trend-card{
     background: var(--panel);
     padding: 18px 16px 14px;
@@ -384,7 +470,7 @@
     display: none;
     pointer-events: none;
     z-index: 50;
-    background: #0d1413;
+    background: var(--panel-alt);
     border: 1px solid var(--green);
     color: var(--text);
     font-family: var(--mono);
@@ -414,6 +500,16 @@
       <span id="now">—</span>
     </div>
   </header>
+
+  <div class="top-bar">
+    <div class="page-nav">
+      <button class="page-btn active" data-page="neutral">Neutral Lost</button>
+      <button class="page-btn" data-page="meters">Meters Dashboard</button>
+    </div>
+    <button id="theme-toggle" class="theme-btn" title="Toggle light/dark mode">🌙 Light Mode</button>
+  </div>
+
+  <div id="page-meters" class="page">
 
   <section class="block">
     <div class="block-title">Meters</div>
@@ -518,6 +614,10 @@
     </div>
   </section>
 
+  </div>
+
+  <div id="page-neutral" class="page active">
+
   <section class="block">
     <div class="block-title">Neutral Lost by Division</div>
     <div id="neutral-live" class="grid-auto">
@@ -531,6 +631,8 @@
       <div class="trend-empty">Trend needs a daily history log — check the "Neutral Lost Log Snapshot" box in the sheet after your next update to start recording history.</div>
     </div>
   </section>
+
+  </div>
 
 
   <footer>
@@ -717,6 +819,23 @@ function dedupeRowsByDay(rows, dateCol = 0){
   return Array.from(byDay.values()); // insertion order = chronological order of first-seen day
 }
 
+function calendarDaySpan(displayRows, dateCol){
+  if (displayRows.length < 2) return displayRows.length;
+  const first = new Date(displayRows[0][dateCol]);
+  const last = new Date(displayRows[displayRows.length - 1][dateCol]);
+  if (isNaN(first) || isNaN(last)) return displayRows.length;
+  return Math.max(Math.round((last - first) / 86400000), 1);
+}
+
+function buildDateChips(dates, showTime){
+  return dates.map((d, i) => `
+    <div class="date-chip ${i === dates.length-1 ? 'latest' : ''}">
+      <span class="d">${d.date}</span>
+      ${showTime ? `<span class="t">${d.time}</span>` : ''}
+    </div>
+  `).join('');
+}
+
 function renderTrend(allRows){
   const panel = document.getElementById('trend-panel');
   const headerIdx = allRows.findIndex(r => r[0] && String(r[0]).trim().toLowerCase() === 'date');
@@ -735,6 +854,7 @@ function renderTrend(allRows){
   const hasBase = extended.length > windowSize;
   const displayRows = hasBase ? extended.slice(1) : extended;
   const baseRow = hasBase ? extended[0] : null;
+  const daySpan = calendarDaySpan(displayRows, 0);
 
   const grid = document.createElement('div');
   grid.className = 'trend-grid';
@@ -752,7 +872,7 @@ function renderTrend(allRows){
       dir = series.invert ? (isUp ? 'down' : 'up') : (isUp ? 'up' : 'down');
       arrow = isUp ? '▲' : '▼';
     }
-    const deltaText = `${delta >= 0 ? '+' : ''}${fmt(Math.round(delta))} over ${values.length}d`;
+    const deltaText = `${delta >= 0 ? '+' : ''}${fmt(Math.round(delta))} over ${daySpan}d`;
 
     const card = document.createElement('div');
     card.className = 'trend-card';
@@ -761,7 +881,7 @@ function renderTrend(allRows){
       <div class="delta ${dir}">${arrow} ${deltaText}</div>
       <div class="chart">${buildBarChart(values, series.invert, baseValue, dates, series.label)}</div>
       <div class="bar-values">${values.map((v, i) => `<span class="${i === values.length-1 ? 'latest' : ''}">${fmt(v)}</span>`).join('')}</div>
-      <div class="bar-dates">${dates.map((d, i) => `<div class="date-chip ${i === dates.length-1 ? 'latest' : ''}"><span class="d">${d.date}</span><span class="t">${d.time}</span></div>`).join('')}</div>
+      <div class="bar-dates">${buildDateChips(dates, true)}</div>
     `;
     grid.appendChild(card);
   });
@@ -854,11 +974,13 @@ function renderNeutralTrend(allRows){
   const hasBase = extended.length > windowSize;
   const displayRows = hasBase ? extended.slice(1) : extended;
   const baseRow = hasBase ? extended[0] : null;
+  const daySpan = calendarDaySpan(displayRows, 8);
 
-  const grid = document.createElement('div');
-  grid.className = 'trend-grid';
+  // Grand Total gets its own full-width row; everything else is a division
+  const totalDef = seriesDefs.find(s => s.label.toLowerCase() === 'grand total');
+  const divisionDefs = seriesDefs.filter(s => s !== totalDef);
 
-  seriesDefs.forEach(series => {
+  function buildCard(series){
     const values = displayRows.map(r => num(r[series.col]));
     const dates = displayRows.map(r => formatLogDate(r[8]));
     const baseValue = baseRow ? num(baseRow[series.col]) : null;
@@ -870,7 +992,7 @@ function renderNeutralTrend(allRows){
       dir = isUp ? 'down' : 'up'; // rising Neutral Lost is always unfavorable
       arrow = isUp ? '▲' : '▼';
     }
-    const deltaText = `${delta >= 0 ? '+' : ''}${fmt(Math.round(delta))} over ${values.length}d`;
+    const deltaText = `${delta >= 0 ? '+' : ''}${fmt(Math.round(delta))} over ${daySpan}d`;
 
     const card = document.createElement('div');
     card.className = 'trend-card';
@@ -879,13 +1001,24 @@ function renderNeutralTrend(allRows){
       <div class="delta ${dir}">${arrow} ${deltaText}</div>
       <div class="chart">${buildBarChart(values, series.invert, baseValue, dates, series.label)}</div>
       <div class="bar-values">${values.map((v, i) => `<span class="${i === values.length-1 ? 'latest' : ''}">${fmt(v)}</span>`).join('')}</div>
-      <div class="bar-dates">${dates.map((d, i) => `<div class="date-chip ${i === dates.length-1 ? 'latest' : ''}"><span class="d">${d.date}</span><span class="t">${d.time}</span></div>`).join('')}</div>
+      <div class="bar-dates">${buildDateChips(dates, false)}</div>
     `;
-    grid.appendChild(card);
-  });
+    return card;
+  }
+
+  const divisionsGrid = document.createElement('div');
+  divisionsGrid.className = 'trend-grid-3';
+  divisionDefs.forEach(series => divisionsGrid.appendChild(buildCard(series)));
 
   panel.innerHTML = '';
-  panel.appendChild(grid);
+  panel.appendChild(divisionsGrid);
+
+  if (totalDef){
+    const totalRow = document.createElement('div');
+    totalRow.className = 'trend-total-row';
+    totalRow.appendChild(buildCard(totalDef));
+    panel.appendChild(totalRow);
+  }
 }
 
 async function syncData(){
@@ -925,17 +1058,47 @@ document.getElementById('refresh-btn').addEventListener('click', syncData);
 
 /* ---------- TOOLTIP (event delegation so it survives chart re-renders) ---------- */
 const tooltipEl = document.getElementById('chart-tooltip');
-const trendPanelEl = document.getElementById('trend-panel');
-trendPanelEl.addEventListener('mousemove', (e) => {
-  const bar = e.target.closest('.bar-rect');
-  if (!bar){ tooltipEl.style.display = 'none'; return; }
-  tooltipEl.textContent = bar.getAttribute('data-tip');
-  tooltipEl.style.display = 'block';
-  tooltipEl.style.left = (e.clientX + 14) + 'px';
-  tooltipEl.style.top = (e.clientY - 14) + 'px';
+function wireTooltip(panelEl){
+  panelEl.addEventListener('mousemove', (e) => {
+    const bar = e.target.closest('.bar-rect');
+    if (!bar){ tooltipEl.style.display = 'none'; return; }
+    tooltipEl.textContent = bar.getAttribute('data-tip');
+    tooltipEl.style.display = 'block';
+    tooltipEl.style.left = (e.clientX + 14) + 'px';
+    tooltipEl.style.top = (e.clientY - 14) + 'px';
+  });
+  panelEl.addEventListener('mouseleave', () => {
+    tooltipEl.style.display = 'none';
+  });
+}
+wireTooltip(document.getElementById('trend-panel'));
+wireTooltip(document.getElementById('neutral-trend-panel'));
+
+/* ---------- PAGE TABS ---------- */
+document.querySelectorAll('.page-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.page-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const target = btn.getAttribute('data-page');
+    document.querySelectorAll('.page').forEach(p => {
+      p.classList.toggle('active', p.id === 'page-' + target);
+    });
+  });
 });
-trendPanelEl.addEventListener('mouseleave', () => {
-  tooltipEl.style.display = 'none';
+
+/* ---------- THEME TOGGLE ---------- */
+const themeBtn = document.getElementById('theme-toggle');
+function applyTheme(mode){
+  document.body.classList.toggle('light-theme', mode === 'light');
+  themeBtn.textContent = mode === 'light' ? '🌙 Dark Mode' : '☀️ Light Mode';
+  try { localStorage.setItem('pd-ami-theme', mode); } catch (e) {}
+}
+let savedTheme = 'dark';
+try { savedTheme = localStorage.getItem('pd-ami-theme') || 'dark'; } catch (e) {}
+applyTheme(savedTheme);
+themeBtn.addEventListener('click', () => {
+  const current = document.body.classList.contains('light-theme') ? 'light' : 'dark';
+  applyTheme(current === 'light' ? 'dark' : 'light');
 });
 
 syncData();
