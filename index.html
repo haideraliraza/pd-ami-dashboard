@@ -104,6 +104,26 @@
   }
   .theme-btn:hover{ border-color: var(--green); color: var(--text); }
 
+  .section-toolbar{
+    display:flex;
+    justify-content: flex-end;
+    margin-bottom: 12px;
+  }
+  .download-btn{
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.02em;
+    padding: 7px 14px;
+    background: var(--panel);
+    border: 1px solid var(--panel-line);
+    color: var(--muted);
+    border-radius: 4px;
+    text-decoration: none;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .download-btn:hover{ border-color: var(--green); color: var(--text); }
+
   .page{ display:none; }
   .page.active{ display:block; }
 
@@ -620,6 +640,9 @@
 
   <section class="block">
     <div class="block-title">Neutral Lost by Division</div>
+    <div class="section-toolbar">
+      <a class="download-btn" href="https://docs.google.com/spreadsheets/d/e/2PACX-1vQbON5DUgzR0s1SRph7nWAh9v3Ii4pOAataxhvTDT9hT2yJZfcxC7tCAqRnfnY5fBTOduCvAbnblSky/pub?gid=1262658705&single=true&output=xlsx" target="_blank" rel="noopener">⬇ Download Latest Neutral Lost Sheet</a>
+    </div>
     <div id="neutral-live" class="grid-auto">
       <div class="trend-empty">No Neutral Lost table found at columns I:J yet.</div>
     </div>
