@@ -124,6 +124,140 @@
   }
   .download-btn:hover{ border-color: var(--green); color: var(--text); }
 
+  /* Neutral Lost / Phase Failure division cards */
+  .division-card{
+    background: var(--panel);
+    padding: 16px 14px;
+    cursor: pointer;
+    transition: background 0.15s, outline-color 0.15s;
+    outline: 2px solid transparent;
+    outline-offset: -2px;
+    min-width: 0;
+    overflow: hidden;
+  }
+  .division-card:hover{ background: var(--panel-alt); }
+  .division-card.selected{ outline-color: var(--green); background: var(--panel-alt); }
+  .division-card.grand-total{ background: var(--panel-alt); }
+  .division-card .label{
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+  .division-card .metric-row{ display:flex; gap: 8px; }
+  .division-card .metric{
+    flex: 1;
+    background: var(--grid);
+    border: 1px solid var(--panel-line);
+    border-radius: 4px;
+    padding: 8px 6px;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-align: center;
+  }
+  .division-card .metric .v{
+    display:block;
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--text);
+    margin-top: 3px;
+  }
+  .division-card .metric.phase .v{ color: var(--amber); }
+
+  .breakdown-panel{
+    margin-top: 1px;
+    background: var(--panel);
+    border: 1px solid var(--panel-line);
+    padding: 18px 20px;
+  }
+  .breakdown-panel .breakdown-head{
+    display:flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .breakdown-panel .breakdown-title{
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text);
+  }
+  .breakdown-panel .breakdown-close{
+    font-family: var(--mono);
+    font-size: 11px;
+    background: transparent;
+    border: 1px solid var(--panel-line);
+    color: var(--muted);
+    border-radius: 4px;
+    padding: 5px 10px;
+    cursor: pointer;
+  }
+  .breakdown-panel .breakdown-close:hover{ border-color: var(--green); color: var(--text); }
+  .breakdown-panel table{
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+  .breakdown-panel th{
+    text-align: left;
+    color: var(--muted);
+    font-size: 10px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    padding: 7px 10px;
+    border-bottom: 1px solid var(--panel-line);
+  }
+  .breakdown-panel td{
+    padding: 7px 10px;
+    border-bottom: 1px solid var(--panel-line);
+    color: var(--text);
+  }
+  .breakdown-panel tr:last-child td{ border-bottom: none; }
+  .breakdown-panel td.num{ text-align: right; }
+
+  /* Grouped bar trend cards (Neutral Lost + Phase Failure) */
+  .trend-card .legend-row{
+    display:flex;
+    gap: 14px;
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--muted);
+    margin-top: 8px;
+  }
+  .trend-card .legend-row span{ display:flex; align-items:center; gap:5px; }
+  .trend-card .legend-dot{
+    width: 7px; height: 7px;
+    border-radius: 2px;
+    display:inline-block;
+    background: var(--muted);
+  }
+  .trend-card .legend-dot.pf{ opacity: 0.65; }
+  .trend-card .bar-values-group{
+    display:flex;
+    flex-direction: column;
+    gap: 3px;
+    margin-top: 4px;
+  }
+  .trend-card .bar-values-row{ display:flex; gap: 6px; }
+  .trend-card .bar-values-row span{
+    flex:1;
+    min-width: 0;
+    text-align:center;
+    font-family: var(--mono);
+    font-size: 8px;
+    color: var(--muted);
+    overflow-wrap: anywhere;
+  }
+  .trend-card .bar-values-row.pf span{ opacity: 0.75; }
+  .trend-card .bar-values-row span.latest{ color: var(--text); font-weight: 600; opacity: 1; }
+
   .page{ display:none; }
   .page.active{ display:block; }
 
@@ -646,12 +780,13 @@
     <div id="neutral-live" class="grid-auto">
       <div class="trend-empty">No Neutral Lost table found at columns I:J yet.</div>
     </div>
+    <div id="neutral-breakdown" class="breakdown-panel" style="display:none;"></div>
   </section>
 
   <section class="block">
-    <div class="block-title">Neutral Lost Trend</div>
+    <div class="block-title">Neutral Lost and Phase Failure Trend</div>
     <div id="neutral-trend-panel">
-      <div class="trend-empty">Trend needs a daily history log — check the "Neutral Lost Log Snapshot" box in the sheet after your next update to start recording history.</div>
+      <div class="trend-empty">Trend needs a daily history log — check the "Log Snapshot" box (cell BA2) in the "Summary Table" sheet after your next update to start recording history.</div>
     </div>
   </section>
 
@@ -672,14 +807,20 @@
 const PUBLISHED_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQbON5DUgzR0s1SRph7nWAh9v3Ii4pOAataxhvTDT9hT2yJZfcxC7tCAqRnfnY5fBTOduCvAbnblSky/pub?gid=0&single=true&output=csv';
 const CSV_URL = `${PUBLISHED_CSV_URL}&cachebust=${Date.now()}`;
 
-/* Once a "History" tab is set up (see setup notes) and published to web,
-   paste its CSV URL here to activate the trend section. Leave blank to
-   keep the trend panel in its "not set up yet" state. */
+/* Summary Table tab (Div / Sub Div / Neutral Lost / Phase Failure,
+   plus its own trend log starting at column G). Built from the same
+   publish ID as above with the Summary Table's gid — this wasn't
+   independently verified by opening it directly, so if the Neutral
+   Lost sections show a sync error, this is the first thing to check:
+   paste this URL into a browser (signed out) and confirm it returns
+   raw CSV rather than an error page. */
+const SUMMARY_PUBLISHED_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQbON5DUgzR0s1SRph7nWAh9v3Ii4pOAataxhvTDT9hT2yJZfcxC7tCAqRnfnY5fBTOduCvAbnblSky/pub?gid=390178752&single=true&output=csv';
+
 /* The daily snapshot log (written by the Apps Script) lives in the same
-   tab, headed by a row starting with "Date" — arrives in the same CSV
-   fetch as the live figures, so no second URL is needed. We locate it
-   by its header text rather than a fixed row number, so it keeps
-   working even if a row or two shifts. */
+   tab it belongs to, headed by a row containing "Date" — arrives in the
+   same CSV fetch as the live figures, so no separate log URL is needed.
+   Header rows are located by their text rather than a fixed row number,
+   so this keeps working even if a row or two shifts. */
 
 const REFRESH_MS = 3600000; // re-fetch every hour
 
@@ -913,82 +1054,221 @@ function renderTrend(allRows){
   panel.appendChild(grid);
 }
 
-/* ---------- NEUTRAL LOST (live panel) ---------- */
-/* Table lives at columns I:J, starting row 2: Division name in I,
-   count in J, until a "Grand Total" row is hit. Divisions aren't
-   hardcoded — read dynamically so adding/renaming rows just works. */
-function parseNeutralLostLive(rows){
-  const divisions = [];
-  let grandTotal = null;
-  for (let r = 1; r < rows.length; r++){ // row index 1 = sheet row 2 (skip header row 1)
-    const label = (rows[r] && rows[r][8]) || ''; // column I
-    if (!label){
-      if (divisions.length) break; // blank after data started = end of table
-      continue; // blank before data starts = skip
+/* ---------- NEUTRAL LOST / PHASE FAILURE (live panel, from Summary Table) ---------- */
+/* Summary Table layout: column A = Div (only shown on the first row of
+   each division's block, blank after that — forward-filled here),
+   column B = Sub Div, column C = Neutral Lost count, column D = Phase
+   Failure count. A "<Division> Total" row (blank Sub Div) closes out
+   each block. Divisions aren't hardcoded — read dynamically. */
+function parseSummaryLive(rows){
+  const divisions = []; // { name, nl, pf, subdivisions: [{name, nl, pf}] }
+  let current = null;
+
+  for (let r = 1; r < rows.length; r++){ // skip header row 0
+    const row = rows[r] || [];
+    const aVal = (row[0] || '').toString().trim();
+    const bVal = (row[1] || '').toString().trim();
+    if (!aVal && !bVal) continue;
+
+    if (aVal && /total$/i.test(aVal)){
+      if (current){
+        current.nl = num(row[2]);
+        current.pf = num(row[3]);
+      }
+      current = null; // block closed
+      continue;
     }
-    const value = num(rows[r][9]); // column J
-    if (String(label).trim().toLowerCase() === 'grand total'){
-      grandTotal = value;
-      break;
+
+    if (aVal){
+      current = { name: aVal, nl: 0, pf: 0, subdivisions: [] };
+      divisions.push(current);
     }
-    divisions.push({ name: String(label).trim(), value });
+
+    if (bVal && current){
+      current.subdivisions.push({ name: bVal, nl: num(row[2]), pf: num(row[3]) });
+    }
   }
-  return { divisions, grandTotal };
+  return divisions;
 }
 
-function renderNeutralLive(rows){
+function renderNeutralLive(divisions){
   const container = document.getElementById('neutral-live');
-  const { divisions, grandTotal } = parseNeutralLostLive(rows);
   if (!divisions.length){
-    container.innerHTML = `<div class="trend-empty">No Neutral Lost table found at columns I:J yet.</div>`;
+    container.innerHTML = `<div class="trend-empty">No Neutral Lost table found in Summary Table (columns A:D) yet.</div>`;
+    hideBreakdown();
     return;
   }
+
+  const grandNL = divisions.reduce((sum, d) => sum + d.nl, 0);
+  const grandPF = divisions.reduce((sum, d) => sum + d.pf, 0);
+
   let html = divisions.map(d => `
-    <div class="stat">
+    <div class="division-card" data-div="${d.name}">
       <div class="label">${d.name}</div>
-      <div class="value">${fmt(d.value)}</div>
+      <div class="metric-row">
+        <div class="metric neutral">Neutral Lost<span class="v">${fmt(d.nl)}</span></div>
+        <div class="metric phase">Phase Failure<span class="v">${fmt(d.pf)}</span></div>
+      </div>
     </div>
   `).join('');
-  if (grandTotal !== null){
-    html += `
-      <div class="stat total">
-        <div class="label">Grand Total</div>
-        <div class="value" style="color:var(--amber)">${fmt(grandTotal)}</div>
+  html += `
+    <div class="division-card grand-total" data-div="__grand_total__">
+      <div class="label">Grand Total</div>
+      <div class="metric-row">
+        <div class="metric neutral">Neutral Lost<span class="v">${fmt(grandNL)}</span></div>
+        <div class="metric phase">Phase Failure<span class="v">${fmt(grandPF)}</span></div>
       </div>
-    `;
-  }
+    </div>
+  `;
   container.innerHTML = html;
+
+  container.querySelectorAll('.division-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const name = card.getAttribute('data-div');
+      const alreadySelected = card.classList.contains('selected');
+      container.querySelectorAll('.division-card').forEach(c => c.classList.remove('selected'));
+      if (alreadySelected){
+        hideBreakdown();
+        return;
+      }
+      card.classList.add('selected');
+      if (name === '__grand_total__'){
+        renderBreakdown('Grand Total — All Divisions', divisions.flatMap(d => d.subdivisions.map(s => ({ name: `${s.name} (${d.name})`, nl: s.nl, pf: s.pf }))));
+      } else {
+        const div = divisions.find(d => d.name === name);
+        renderBreakdown(div.name, div.subdivisions);
+      }
+    });
+  });
 }
 
-/* ---------- NEUTRAL LOST (trend) ---------- */
-/* Log header (row with "Date" in column I) defines the series — read
-   dynamically from the header row itself rather than hardcoded, so it
-   tracks whatever divisions were present the first time it was logged.
-   Rising Neutral Lost is always treated as unfavorable (invert: true). */
+function renderBreakdown(title, subdivisions){
+  const panel = document.getElementById('neutral-breakdown');
+  const rows = subdivisions.map(s => `
+    <tr><td>${s.name}</td><td class="num">${fmt(s.nl)}</td><td class="num">${fmt(s.pf)}</td></tr>
+  `).join('');
+  panel.innerHTML = `
+    <div class="breakdown-head">
+      <div class="breakdown-title">${title} — Sub Division Breakdown</div>
+      <button class="breakdown-close" id="breakdown-close-btn">Close ✕</button>
+    </div>
+    <table>
+      <thead><tr><th>Sub Division</th><th class="num">Neutral Lost</th><th class="num">Phase Failure</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+  panel.style.display = 'block';
+  document.getElementById('breakdown-close-btn').addEventListener('click', () => {
+    document.querySelectorAll('.division-card').forEach(c => c.classList.remove('selected'));
+    hideBreakdown();
+  });
+}
+
+function hideBreakdown(){
+  const panel = document.getElementById('neutral-breakdown');
+  panel.style.display = 'none';
+  panel.innerHTML = '';
+}
+
+/* ---------- NEUTRAL LOST / PHASE FAILURE (grouped trend chart) ---------- */
+// Treats a blank logged value as "no data" (null) rather than 0 — this
+// matters for Phase Failure on dates logged before it was tracked.
+function numOrNull(str){
+  if (str === undefined || str === null || String(str).trim() === '') return null;
+  return num(str);
+}
+
+function buildGroupedBarChart(dates, nlValues, pfValues, nlBase, pfBase){
+  const w = 220, h = 90, pad = 4, groupGap = 6, barGap = 2;
+  const n = dates.length;
+
+  const allVals = [];
+  nlValues.forEach(v => { if (v !== null) allVals.push(v); });
+  pfValues.forEach(v => { if (v !== null) allVals.push(v); });
+  if (nlBase !== null && nlBase !== undefined) allVals.push(nlBase);
+  if (pfBase !== null && pfBase !== undefined) allVals.push(pfBase);
+  if (!allVals.length) allVals.push(0);
+
+  const min = Math.min(...allVals), max = Math.max(...allVals);
+  const range = (max - min) || (max * 0.1) || 1;
+  const padded = range * 0.25;
+  const scaleMin = min - padded, scaleMax = max + padded;
+  const scaleRange = (scaleMax - scaleMin) || 1;
+
+  const groupW = (w - pad*2 - groupGap*(n-1)) / n;
+  const barW = Math.max((groupW - barGap) / 2, 1);
+
+  let bars = '';
+  for (let i = 0; i < n; i++){
+    const groupX = pad + i * (groupW + groupGap);
+
+    const nlV = nlValues[i];
+    if (nlV !== null){
+      const bh = ((nlV - scaleMin) / scaleRange) * (h - pad*2);
+      const y = h - pad - bh;
+      const prev = i === 0 ? nlBase : nlValues[i-1];
+      let color = 'var(--muted)';
+      if (prev !== null && prev !== undefined && nlV !== prev){
+        color = nlV > prev ? 'var(--red)' : 'var(--green)';
+      }
+      const tip = `Neutral Lost: ${fmt(nlV)} — ${dates[i].date}`;
+      bars += `<rect class="bar-rect" data-tip="${tip}" x="${groupX.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(bh,1.5).toFixed(1)}" fill="${color}" rx="1.5"/>`;
+    }
+
+    const pfX = groupX + barW + barGap;
+    const pfV = pfValues[i];
+    if (pfV !== null){
+      const bh = ((pfV - scaleMin) / scaleRange) * (h - pad*2);
+      const y = h - pad - bh;
+      const prev = i === 0 ? pfBase : pfValues[i-1];
+      let color = 'var(--muted)';
+      if (prev !== null && prev !== undefined && pfV !== prev){
+        color = pfV > prev ? 'var(--red)' : 'var(--green)';
+      }
+      const tip = `Phase Failure: ${fmt(pfV)} — ${dates[i].date}`;
+      bars += `<rect class="bar-rect" data-tip="${tip}" x="${pfX.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(bh,1.5).toFixed(1)}" fill="${color}" opacity="0.65" rx="1.5"/>`;
+    } else {
+      const y = h - pad - 3;
+      const tip = `Phase Failure: no data logged — ${dates[i].date}`;
+      bars += `<rect class="bar-rect" data-tip="${tip}" x="${pfX.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="3" fill="var(--panel-line)" rx="1"/>`;
+    }
+  }
+
+  return `<svg width="100%" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">${bars}</svg>`;
+}
+
+function deltaFromNonNull(values){
+  const present = values.map((v, i) => ({ v, i })).filter(o => o.v !== null);
+  if (present.length < 2) return null;
+  return present[present.length-1].v - present[0].v;
+}
+
 function renderNeutralTrend(allRows){
   const panel = document.getElementById('neutral-trend-panel');
-  const headerIdx = allRows.findIndex(r => r[8] && String(r[8]).trim().toLowerCase() === 'date');
+  const headerIdx = allRows.findIndex(r => r.some(cell => String(cell).trim().toLowerCase() === 'date'));
   if (headerIdx === -1){
-    panel.innerHTML = `<div class="trend-empty">No log found yet — check the "Neutral Lost Log Snapshot" box in the sheet after your next update to start recording history.</div>`;
+    panel.innerHTML = `<div class="trend-empty">No log found yet — check the "Log Snapshot" box (cell BA2) in the Summary Table sheet after your next update to start recording history.</div>`;
     return;
   }
 
   const headerRow = allRows[headerIdx];
-  const seriesDefs = [];
-  for (let c = 9; c < headerRow.length; c++){
-    const label = headerRow[c];
-    if (!label) break;
-    seriesDefs.push({ label: String(label).trim(), col: c, invert: true });
+  const dateCol = headerRow.findIndex(c => String(c).trim().toLowerCase() === 'date');
+  const divisionSeries = []; // { name, nlCol, pfCol }
+  for (let c = dateCol + 1; c < headerRow.length; c += 2){
+    const nlLabel = headerRow[c];
+    if (!nlLabel) break;
+    const name = String(nlLabel).replace(/neutral lost$/i, '').trim();
+    divisionSeries.push({ name, nlCol: c, pfCol: c + 1 });
   }
-  if (!seriesDefs.length){
+  if (!divisionSeries.length){
     panel.innerHTML = `<div class="trend-empty">Log header found but no division columns detected.</div>`;
     return;
   }
 
-  const allLoggedRows = allRows.slice(headerIdx + 1).filter(r => r[8]);
-  const rows = dedupeRowsByDay(allLoggedRows, 8); // keep only the latest snapshot per calendar day
+  const allLoggedRows = allRows.slice(headerIdx + 1).filter(r => r[dateCol]);
+  const rows = dedupeRowsByDay(allLoggedRows, dateCol);
   if (rows.length < 2){
-    panel.innerHTML = `<div class="trend-empty">${rows.length} day${rows.length === 1 ? '' : 's'} logged so far — check the "Neutral Lost Log Snapshot" box once you finish an update to add today's reading. Trend charts need at least 2 logged days.</div>`;
+    panel.innerHTML = `<div class="trend-empty">${rows.length} day${rows.length === 1 ? '' : 's'} logged so far — check the "Log Snapshot" box (cell BA2) once you finish an update to add today's reading. Trend charts need at least 2 logged days.</div>`;
     return;
   }
 
@@ -997,33 +1277,39 @@ function renderNeutralTrend(allRows){
   const hasBase = extended.length > windowSize;
   const displayRows = hasBase ? extended.slice(1) : extended;
   const baseRow = hasBase ? extended[0] : null;
-  const daySpan = calendarDaySpan(displayRows, 8);
+  const daySpan = calendarDaySpan(displayRows, dateCol);
+  const dates = displayRows.map(r => formatLogDate(r[dateCol]));
 
-  // Grand Total gets its own full-width row; everything else is a division
-  const totalDef = seriesDefs.find(s => s.label.toLowerCase() === 'grand total');
-  const divisionDefs = seriesDefs.filter(s => s !== totalDef);
+  function deltaLine(values, label){
+    const delta = deltaFromNonNull(values);
+    if (delta === null) return `<div class="delta flat">${label}: insufficient data</div>`;
+    const isUp = delta > 0;
+    const dir = Math.abs(delta) < 0.0001 ? 'flat' : (isUp ? 'down' : 'up'); // rising is always unfavorable
+    const arrow = Math.abs(delta) < 0.0001 ? '→' : (isUp ? '▲' : '▼');
+    return `<div class="delta ${dir}">${label}: ${arrow} ${delta >= 0 ? '+' : ''}${fmt(Math.round(delta))} over ${daySpan}d</div>`;
+  }
 
-  function buildCard(series){
-    const values = displayRows.map(r => num(r[series.col]));
-    const dates = displayRows.map(r => formatLogDate(r[8]));
-    const baseValue = baseRow ? num(baseRow[series.col]) : null;
-    const first = values[0], last = values[values.length - 1];
-    const delta = last - first;
-    let dir = 'flat', arrow = '→';
-    if (Math.abs(delta) > 0.0001){
-      const isUp = delta > 0;
-      dir = isUp ? 'down' : 'up'; // rising Neutral Lost is always unfavorable
-      arrow = isUp ? '▲' : '▼';
-    }
-    const deltaText = `${delta >= 0 ? '+' : ''}${fmt(Math.round(delta))} over ${daySpan}d`;
+  function buildCard(name, nlCol, pfCol){
+    const nlValues = displayRows.map(r => numOrNull(r[nlCol]));
+    const pfValues = displayRows.map(r => numOrNull(r[pfCol]));
+    const nlBase = baseRow ? numOrNull(baseRow[nlCol]) : null;
+    const pfBase = baseRow ? numOrNull(baseRow[pfCol]) : null;
 
     const card = document.createElement('div');
     card.className = 'trend-card';
     card.innerHTML = `
-      <div class="label">${series.label}</div>
-      <div class="delta ${dir}">${arrow} ${deltaText}</div>
-      <div class="chart">${buildBarChart(values, series.invert, baseValue, dates, series.label)}</div>
-      <div class="bar-values">${values.map((v, i) => `<span class="${i === values.length-1 ? 'latest' : ''}">${fmt(v)}</span>`).join('')}</div>
+      <div class="label">${name}</div>
+      ${deltaLine(nlValues, 'NL')}
+      ${deltaLine(pfValues, 'PF')}
+      <div class="chart">${buildGroupedBarChart(dates, nlValues, pfValues, nlBase, pfBase)}</div>
+      <div class="legend-row">
+        <span><i class="legend-dot"></i>Neutral Lost</span>
+        <span><i class="legend-dot pf"></i>Phase Failure</span>
+      </div>
+      <div class="bar-values-group">
+        <div class="bar-values-row nl">${nlValues.map((v, i) => `<span class="${i === nlValues.length-1 ? 'latest' : ''}">${v === null ? '—' : fmt(v)}</span>`).join('')}</div>
+        <div class="bar-values-row pf">${pfValues.map((v, i) => `<span class="${i === pfValues.length-1 ? 'latest' : ''}">${v === null ? '—' : fmt(v)}</span>`).join('')}</div>
+      </div>
       <div class="bar-dates">${buildDateChips(dates, false)}</div>
     `;
     return card;
@@ -1031,17 +1317,75 @@ function renderNeutralTrend(allRows){
 
   const divisionsGrid = document.createElement('div');
   divisionsGrid.className = 'trend-grid-3';
-  divisionDefs.forEach(series => divisionsGrid.appendChild(buildCard(series)));
+  divisionSeries.forEach(s => divisionsGrid.appendChild(buildCard(s.name, s.nlCol, s.pfCol)));
 
   panel.innerHTML = '';
   panel.appendChild(divisionsGrid);
 
-  if (totalDef){
-    const totalRow = document.createElement('div');
-    totalRow.className = 'trend-total-row';
-    totalRow.appendChild(buildCard(totalDef));
-    panel.appendChild(totalRow);
-  }
+  // Grand Total row — summed client-side across all divisions per date
+  const grandNL = displayRows.map(r => {
+    const vals = divisionSeries.map(s => numOrNull(r[s.nlCol])).filter(v => v !== null);
+    return vals.length ? vals.reduce((a,b) => a+b, 0) : null;
+  });
+  const grandPF = displayRows.map(r => {
+    const vals = divisionSeries.map(s => numOrNull(r[s.pfCol])).filter(v => v !== null);
+    return vals.length ? vals.reduce((a,b) => a+b, 0) : null;
+  });
+  const grandNLBase = baseRow ? (() => {
+    const vals = divisionSeries.map(s => numOrNull(baseRow[s.nlCol])).filter(v => v !== null);
+    return vals.length ? vals.reduce((a,b) => a+b, 0) : null;
+  })() : null;
+  const grandPFBase = baseRow ? (() => {
+    const vals = divisionSeries.map(s => numOrNull(baseRow[s.pfCol])).filter(v => v !== null);
+    return vals.length ? vals.reduce((a,b) => a+b, 0) : null;
+  })() : null;
+
+  const totalCard = document.createElement('div');
+  totalCard.className = 'trend-card';
+  totalCard.innerHTML = `
+    <div class="label">Grand Total</div>
+    ${deltaLine(grandNL, 'NL')}
+    ${deltaLine(grandPF, 'PF')}
+    <div class="chart">${buildGroupedBarChart(dates, grandNL, grandPF, grandNLBase, grandPFBase)}</div>
+    <div class="legend-row">
+      <span><i class="legend-dot"></i>Neutral Lost</span>
+      <span><i class="legend-dot pf"></i>Phase Failure</span>
+    </div>
+    <div class="bar-values-group">
+      <div class="bar-values-row nl">${grandNL.map((v, i) => `<span class="${i === grandNL.length-1 ? 'latest' : ''}">${v === null ? '—' : fmt(v)}</span>`).join('')}</div>
+      <div class="bar-values-row pf">${grandPF.map((v, i) => `<span class="${i === grandPF.length-1 ? 'latest' : ''}">${v === null ? '—' : fmt(v)}</span>`).join('')}</div>
+    </div>
+    <div class="bar-dates">${buildDateChips(dates, false)}</div>
+  `;
+  const totalRow = document.createElement('div');
+  totalRow.className = 'trend-total-row';
+  totalRow.appendChild(totalCard);
+  panel.appendChild(totalRow);
+}
+
+async function syncMainDashboard(){
+  const res = await fetch(CSV_URL, { cache: 'no-store' });
+  if (!res.ok) throw new Error('Fetch failed: ' + res.status);
+  const text = await res.text();
+  const rows = parseCSV(text);
+
+  renderGroup('m', rows[POS.meters].slice(0, 5));
+  renderGroup('d', rows[POS.dcu].slice(0, 5));
+  setText('abnormal-value', fmt(num(rows[POS.abnormal][0])));
+  renderGauges(rows[POS.collection].slice(1, 5));
+  renderTrend(rows);
+}
+
+async function syncNeutralLostAndPhaseFailure(){
+  const url = `${SUMMARY_PUBLISHED_CSV_URL}&cachebust=${Date.now()}`;
+  const res = await fetch(url, { cache: 'no-store' });
+  if (!res.ok) throw new Error('Summary Table fetch failed: ' + res.status);
+  const text = await res.text();
+  const rows = parseCSV(text);
+
+  const divisions = parseSummaryLive(rows);
+  renderNeutralLive(divisions);
+  renderNeutralTrend(rows);
 }
 
 async function syncData(){
@@ -1049,32 +1393,29 @@ async function syncData(){
   const btn = document.getElementById('refresh-btn');
   btn.disabled = true;
   btn.classList.add('spinning');
-  try{
-    syncLabel.textContent = 'Syncing…';
-    const res = await fetch(CSV_URL, { cache: 'no-store' });
-    if (!res.ok) throw new Error('Fetch failed: ' + res.status);
-    const text = await res.text();
-    const rows = parseCSV(text);
+  syncLabel.textContent = 'Syncing…';
 
-    renderGroup('m', rows[POS.meters].slice(0, 5));
-    renderGroup('d', rows[POS.dcu].slice(0, 5));
-    setText('abnormal-value', fmt(num(rows[POS.abnormal][0])));
-    renderGauges(rows[POS.collection].slice(1, 5));
-    renderTrend(rows);
-    renderNeutralLive(rows);
-    renderNeutralTrend(rows);
+  const results = await Promise.allSettled([
+    syncMainDashboard(),
+    syncNeutralLostAndPhaseFailure()
+  ]);
+  const failures = results.filter(r => r.status === 'rejected');
+  failures.forEach(f => console.error('Sync error:', f.reason));
 
+  if (!failures.length){
     syncLabel.textContent = 'Live — synced';
     syncLabel.style.color = 'var(--green)';
-  } catch (err){
-    console.error('Sync error:', err);
+  } else if (failures.length === results.length){
     syncLabel.textContent = 'Sync failed — showing last known data';
     syncLabel.style.color = 'var(--amber)';
-  } finally {
-    document.getElementById('now').textContent = new Date().toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
-    btn.disabled = false;
-    btn.classList.remove('spinning');
+  } else {
+    syncLabel.textContent = 'Partially synced — one source failed';
+    syncLabel.style.color = 'var(--amber)';
   }
+
+  document.getElementById('now').textContent = new Date().toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
+  btn.disabled = false;
+  btn.classList.remove('spinning');
 }
 
 document.getElementById('refresh-btn').addEventListener('click', syncData);
