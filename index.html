@@ -201,10 +201,12 @@
   .breakdown-panel .breakdown-close:hover{ border-color: var(--green); color: var(--text); }
   .breakdown-panel table{
     width: 100%;
+    table-layout: fixed;
     border-collapse: collapse;
     font-family: var(--mono);
     font-size: 12px;
   }
+  .breakdown-panel col.num-col{ width: 150px; }
   .breakdown-panel th{
     text-align: left;
     color: var(--muted);
@@ -220,7 +222,10 @@
     color: var(--text);
   }
   .breakdown-panel tr:last-child td{ border-bottom: none; }
-  .breakdown-panel td.num{ text-align: right; }
+  .breakdown-panel th.num, .breakdown-panel td.num{ text-align: center; }
+  @media (max-width: 640px){
+    .breakdown-panel col.num-col{ width: 90px; }
+  }
 
   /* Grouped bar trend cards (Neutral Lost + Phase Failure) */
   .trend-card .legend-row{
@@ -238,7 +243,10 @@
     display:inline-block;
     background: var(--muted);
   }
-  .trend-card .legend-dot.pf{ opacity: 0.65; }
+  .trend-card .legend-dot.pf{
+    background: transparent;
+    border: 1.5px solid var(--amber);
+  }
   .trend-card .bar-values-group{
     display:flex;
     flex-direction: column;
@@ -255,8 +263,9 @@
     color: var(--muted);
     overflow-wrap: anywhere;
   }
-  .trend-card .bar-values-row.pf span{ opacity: 0.75; }
+  .trend-card .bar-values-row.pf span{ color: var(--amber); opacity: 0.85; }
   .trend-card .bar-values-row span.latest{ color: var(--text); font-weight: 600; opacity: 1; }
+  .trend-card .bar-values-row.pf span.latest{ color: var(--amber); font-weight: 700; opacity: 1; }
 
   .page{ display:none; }
   .page.active{ display:block; }
@@ -773,7 +782,7 @@
   <div id="page-neutral" class="page active">
 
   <section class="block">
-    <div class="block-title">Neutral Lost by Division</div>
+    <div class="block-title">Neutral Lost and Phase Failure by Division</div>
     <div class="section-toolbar">
       <a class="download-btn" href="https://docs.google.com/spreadsheets/d/e/2PACX-1vQbON5DUgzR0s1SRph7nWAh9v3Ii4pOAataxhvTDT9hT2yJZfcxC7tCAqRnfnY5fBTOduCvAbnblSky/pub?gid=1262658705&single=true&output=xlsx" target="_blank" rel="noopener">⬇ Download Latest Neutral Lost Sheet</a>
     </div>
@@ -1133,27 +1142,28 @@ function renderNeutralLive(divisions){
       }
       card.classList.add('selected');
       if (name === '__grand_total__'){
-        renderBreakdown('Grand Total — All Divisions', divisions.flatMap(d => d.subdivisions.map(s => ({ name: `${s.name} (${d.name})`, nl: s.nl, pf: s.pf }))));
+        renderBreakdown('Grand Total', 'Division Breakdown', 'Division', divisions.map(d => ({ name: d.name, nl: d.nl, pf: d.pf })));
       } else {
         const div = divisions.find(d => d.name === name);
-        renderBreakdown(div.name, div.subdivisions);
+        renderBreakdown(div.name, 'Sub Division Breakdown', 'Sub Division', div.subdivisions);
       }
     });
   });
 }
 
-function renderBreakdown(title, subdivisions){
+function renderBreakdown(title, headingSuffix, rowLabel, items){
   const panel = document.getElementById('neutral-breakdown');
-  const rows = subdivisions.map(s => `
+  const rows = items.map(s => `
     <tr><td>${s.name}</td><td class="num">${fmt(s.nl)}</td><td class="num">${fmt(s.pf)}</td></tr>
   `).join('');
   panel.innerHTML = `
     <div class="breakdown-head">
-      <div class="breakdown-title">${title} — Sub Division Breakdown</div>
+      <div class="breakdown-title">${title} — ${headingSuffix}</div>
       <button class="breakdown-close" id="breakdown-close-btn">Close ✕</button>
     </div>
     <table>
-      <thead><tr><th>Sub Division</th><th class="num">Neutral Lost</th><th class="num">Phase Failure</th></tr></thead>
+      <colgroup><col><col class="num-col"><col class="num-col"></colgroup>
+      <thead><tr><th>${rowLabel}</th><th class="num">Neutral Lost</th><th class="num">Phase Failure</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
   `;
@@ -1226,7 +1236,7 @@ function buildGroupedBarChart(dates, nlValues, pfValues, nlBase, pfBase){
         color = pfV > prev ? 'var(--red)' : 'var(--green)';
       }
       const tip = `Phase Failure: ${fmt(pfV)} — ${dates[i].date}`;
-      bars += `<rect class="bar-rect" data-tip="${tip}" x="${pfX.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(bh,1.5).toFixed(1)}" fill="${color}" opacity="0.65" rx="1.5"/>`;
+      bars += `<rect class="bar-rect" data-tip="${tip}" x="${pfX.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(bh,1.5).toFixed(1)}" fill="${color}" opacity="0.7" stroke="var(--amber)" stroke-width="1" rx="1.5"/>`;
     } else {
       const y = h - pad - 3;
       const tip = `Phase Failure: no data logged — ${dates[i].date}`;
