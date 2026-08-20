@@ -106,9 +106,18 @@
 
   .section-toolbar{
     display:flex;
-    justify-content: flex-end;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
     margin-bottom: 12px;
   }
+  .last-updated-note{
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .last-updated-note .value{ color: var(--text); }
   .download-btn{
     font-family: var(--mono);
     font-size: 11px;
@@ -784,6 +793,7 @@
   <section class="block">
     <div class="block-title">Neutral Lost and Phase Failure by Division</div>
     <div class="section-toolbar">
+      <div id="neutral-last-updated" class="last-updated-note">Sheet last updated: —</div>
       <a class="download-btn" href="https://docs.google.com/spreadsheets/d/e/2PACX-1vQbON5DUgzR0s1SRph7nWAh9v3Ii4pOAataxhvTDT9hT2yJZfcxC7tCAqRnfnY5fBTOduCvAbnblSky/pub?gid=1262658705&single=true&output=xlsx" target="_blank" rel="noopener">⬇ Download Latest Neutral Lost Sheet</a>
     </div>
     <div id="neutral-live" class="grid-auto">
@@ -795,7 +805,7 @@
   <section class="block">
     <div class="block-title">Neutral Lost and Phase Failure Trend</div>
     <div id="neutral-trend-panel">
-      <div class="trend-empty">Trend needs a daily history log — check the "Log Snapshot" box (cell BA2) in the "Summary Table" sheet after your next update to start recording history.</div>
+      <div class="trend-empty">Trend needs a daily history log — check the "Log Snapshot" box (cell F2) in the "Summary Table" sheet after your next update to start recording history.</div>
     </div>
   </section>
 
@@ -1255,9 +1265,11 @@ function deltaFromNonNull(values){
 
 function renderNeutralTrend(allRows){
   const panel = document.getElementById('neutral-trend-panel');
+  const lastUpdatedEl = document.getElementById('neutral-last-updated');
   const headerIdx = allRows.findIndex(r => r.some(cell => String(cell).trim().toLowerCase() === 'date'));
   if (headerIdx === -1){
-    panel.innerHTML = `<div class="trend-empty">No log found yet — check the "Log Snapshot" box (cell BA2) in the Summary Table sheet after your next update to start recording history.</div>`;
+    panel.innerHTML = `<div class="trend-empty">No log found yet — check the "Log Snapshot" box (cell F2) in the Summary Table sheet after your next update to start recording history.</div>`;
+    if (lastUpdatedEl) lastUpdatedEl.innerHTML = 'Sheet last updated: <span class="value">no log yet</span>';
     return;
   }
 
@@ -1277,8 +1289,14 @@ function renderNeutralTrend(allRows){
 
   const allLoggedRows = allRows.slice(headerIdx + 1).filter(r => r[dateCol]);
   const rows = dedupeRowsByDay(allLoggedRows, dateCol);
+
+  if (rows.length){
+    const lastEntry = formatLogDate(rows[rows.length - 1][dateCol]);
+    if (lastUpdatedEl) lastUpdatedEl.innerHTML = `Sheet last updated: <span class="value">${lastEntry.date}, ${lastEntry.time}</span>`;
+  }
+
   if (rows.length < 2){
-    panel.innerHTML = `<div class="trend-empty">${rows.length} day${rows.length === 1 ? '' : 's'} logged so far — check the "Log Snapshot" box (cell BA2) once you finish an update to add today's reading. Trend charts need at least 2 logged days.</div>`;
+    panel.innerHTML = `<div class="trend-empty">${rows.length} day${rows.length === 1 ? '' : 's'} logged so far — check the "Log Snapshot" box (cell F2) once you finish an update to add today's reading. Trend charts need at least 2 logged days.</div>`;
     return;
   }
 
